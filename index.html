@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mickey PWA Talker</title>
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIk1pY2t5IFRhbGtlciIsCiAgInNob3J0X25hbWUiOiAiTWljS2kiLAogICJzdGFydF91cmwiOiAiLi8iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmZmYiLAogICJ0aGVtZV9jb2xvciI6ICIjZmYzMDAwIiwKICAiaWNvbnMiOiBbewogICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUIzYVdRaU1EVXhOekF3TXpJNU5qUTNOeUFnTXpVNU1EUXlNREl6TVRnNU1EY3lORGs1TVRZNU1EazVPVGM1TnpJNU1qVTVNRFV4TmpJNU1EQTBNREF4TnpFNU1EazNPREkxTnpJNU1EVXhNemc0TVRrd01qUTJNVGN5TnpBeE5qazNPREF4TnpnNU1EVXlNRGcyTkRBeU1URTFNREkxTWpVeE16STVPREkzTnpBeU1qTTNOekUzTnpBeE1qQTFNREF4TnpJNU1EVXhOekFnTXpnNU1EazNPREkxTnpJNU1EVXhNemc0TVRrd01qUTJNVGN5TnpBeE5qazNPREF4TnpnNU1EVXlNRGcyTkRBeU1URTFNREkxTWpVeE16STVPREkzTnpBeU1qTTNOekUzTnpBeE1qQTFNREF4IiwKICAgICJzaXplcyI6ICIxOTJ4MTkyIDE1M3gxNTMiLAogICAgInR5cGUiOiAiaW1hZ2Uvc3ZnK3htbCtgZW1iZXIiCiAgfV0KfQ==">
+  <style>
+    body { margin: 0; font-family: Arial; background: linear-gradient(to bottom, #87CEEB, #98D8C8); overflow: hidden; }
+    #container { position: relative; width: 100vw; height: 100vh; }
+    #canvas { display: block; }
+    #ui { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100; background: rgba(255,255,255,0.9); padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); width: 80%; max-width: 500px; }
+    input { width: 70%; padding: 12px; border: 2px solid #ff6600; border-radius: 10px; font-size: 16px; }
+    button { width: 25%; padding: 12px; background: #ff6600; color: white; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; margin-left: 5%; }
+    button:hover { background: #e65c00; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    @media (max-width: 600px) { #ui { width: 90%; } input, button { font-size: 18px; } }
+  </style>
+  
+</head>
+<body>
+  <div id="container">
+    <canvas id="canvas"></canvas>
+    <div id="ui">
+      <input type="text" id="textInput" placeholder="Type what Mickey should say..." maxlength="200">
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+ <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+  import * as THREE from "three";
+  import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+  import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x87CEEB);
+    renderer.shadowMap.enabled = true;
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5, 10, 5);
+    directionalLight.castShadow = true;
+    scene.add(directionalLight);
+
+    // Controls
+    const controls = new OrbitControls(camera, renderer.domElement);
+    camera.position.set(0, 1.5, 3);
+
+    // Mickey Model (use a simple cartoon mouse rigged GLTF; replace URL with real free Mickey GLTF like from Sketchfab/CGTrader download)
+    // Download rigged Mickey GLTF from https://sketchfab.com/3d-models/mickey-mouse-with-rigging-528df78ad989419c95a8aff45decc357 and host locally or use data URL
+    const loader = new GLTFLoader();
+    let mickey, mixer, headBone, mouthBone, eyeBone, armBone;
+    let isSpeaking = false;
+    let utterance;
+
+    // Load model (placeholder: use actual GLTF URL/path after download)
+    loader.load('http://karthikcool05.github.io/models/gojo_jujutsu_kaisen.glb', (gltf) => {  // TEMP: Replace with Mickey GLTF
+      mickey = gltf.scene;
+      mickey.scale.set(2, 2, 2);
+      mickey.position.y = -1;
+      scene.add(mickey);
+
+      // Find bones (adjust names based on your Mickey rig: head, jaw/mouth, eyes, arms)
+      mickey.traverse((child) => {
+        if (child.isBone) {
+          if (child.name.toLowerCase().includes('head')) headBone = child;
+          if (child.name.toLowerCase().includes('mouth') || child.name.toLowerCase().includes('jaw')) mouthBone = child;
+          if (child.name.toLowerCase().includes('eye')) eyeBone = child;
+          if (child.name.toLowerCase().includes('arm')) armBone = child;
+        }
+      });
+
+      mixer = new THREE.AnimationMixer(mickey);
+    }, undefined, (error) => console.error('Model load error:', error));
+
+    // TTS with Lip-sync and Animations
+    const synth = window.speechSynthesis;
+    const voices = synth.getVoices();
+    const mickeyVoice = voices.find(v => v.name.includes('funny') || v.lang.startsWith('en-')) || voices[0];
+
+    document.getElementById('sendBtn').onclick = () => {
+      const text = document.getElementById('textInput').value.trim();
+      if (!text || isSpeaking) return;
+
+      isSpeaking = true;
+      document.getElementById('sendBtn').disabled = true;
+      document.getElementById('textInput').value = '';
+
+      utterance = new SpeechSynthesisUtterance(text);
+      utterance.voice = mickeyVoice;
+      utterance.rate = 0.9;
+      utterance.pitch = 1.2;  // High Mickey pitch
+
+      // Lip-sync via Web Audio (simple volume-based mouth open)
+      utterance.onstart = () => animateSpeaking();
+      utterance.onend = () => {
+        isSpeaking = false;
+        document.getElementById('sendBtn').disabled = false;
+        resetPose();
+      };
+
+      synth.speak(utterance);
+    };
+
+    function animateSpeaking() {
+      // Simple procedural animations (loop until end)
+      const clock = new THREE.Clock();
+      const animateLoop = () => {
+        if (isSpeaking && mixer) {
+          const delta = clock.getDelta();
+          mixer.update(delta);
+
+          // Lip-sync: Mouth open based on simulated volume (real: use AudioContext analyzer)
+          const mouthScale = 0.5 + Math.random() * 0.5;  // Fake volume
+          if (mouthBone) mouthBone.scale.y = mouthScale;
+
+          // Expressions: Eyes squint happy
+          if (eyeBone) eyeBone.scale.set(0.9, 1.1, 1);
+
+          // Body: Head bob
+          if (headBone) headBone.rotation.x = Math.sin(Date.now() * 0.005) * 0.1;
+
+          // Arms wave
+          if (armBone) armBone.rotation.z = Math.sin(Date.now() * 0.01) * 0.3;
+        }
+        if (isSpeaking) requestAnimationFrame(animateLoop);
+      };
+      animateLoop();
+    }
+
+    function resetPose() {
+      if (mouthBone) mouthBone.scale.set(1,1,1);
+      if (eyeBone) eyeBone.scale.set(1,1,1);
+      if (headBone) headBone.rotation.set(0,0,0);
+      if (armBone) armBone.rotation.set(0,0,0);
+    }
+
+    // Render loop
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Load voices async
+    synth.onvoiceschanged = () => { /* voices ready */ };
+  </script>
+</body>
+</html>
